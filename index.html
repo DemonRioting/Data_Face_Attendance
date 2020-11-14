@@ -1,0 +1,132 @@
+<!doctype html>
+<html>
+
+<head>
+    <title>Face Recognition</title>
+    <script src="webcam.min.js"></script>
+    <script src="face-api.min.js"></script>
+
+    <style>
+        h2 {
+            color: crimson;
+            font-size: 40px;
+        }
+
+        body {
+            padding: 0;
+            margin: 0;
+            width: 100vm;
+            height: 100vh;
+            /*justify-content: center;
+            align-items: center;*/
+            background-color: cyan;
+            align-items: center;
+        }
+        #webcam-container {
+            display: block;
+            margin: auto;
+        }
+        #container {
+            display: none;
+        }
+        #container img,
+        #container canvas {
+            position: absolute;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div id="webcam-container"></div>
+    <input id="takeSnapshotButton" type="button" value="Take Snapshot">
+    <div id="container">
+    </div>
+    <h1>List</h1>
+    <h3 id="name"></h3>
+
+    
+
+</body>
+
+<script language="JavaScript">
+    Promise.all([
+        faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
+        faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+        faceapi.nets.ssdMobilenetv1.loadFromUri('/models')
+    ]).then(start)
+
+    async function start() {
+        const container = document.getElementById('container')
+        const labeledFaceDescriptors = await loadLabeledImages()
+        const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6)
+        const takeSnapshotButton = document.getElementById('takeSnapshotButton')
+        let image, canvas
+
+        Webcam.set({
+            width: 500,
+            height: 400,
+            image_format: 'jpeg',
+            jpeg_quality: 90
+        })
+        Webcam.attach('#webcam-container')
+
+        takeSnapshotButton.addEventListener('click', async () => {
+            Webcam.snap(async function (data) {
+                if (image) {
+                    image.remove();
+                }
+                if (canvas) {
+                    canvas.remove();
+                }
+                image = await faceapi.bufferToImage(dataURItoBlob(data, 'image/jpg'))
+                container.append(image)
+                canvas = faceapi.createCanvasFromMedia(image)
+                container.append(canvas)
+
+                await processCanvas(faceMatcher, image, canvas)
+            });
+        })
+    }
+
+    async function processCanvas(faceMatcher, image, canvas) {
+        const displaySize = { width: image.width, height: image.height }
+        faceapi.matchDimensions(canvas, displaySize)
+        const detections = await faceapi.detectAllFaces(image).withFaceLandmarks().withFaceDescriptors()
+        const resizedDetections = faceapi.resizeResults(detections, displaySize)
+        const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor))
+        
+        results.forEach((result, i) => {
+            const box = resizedDetections[i].detection.box
+            const drawBox = new faceapi.draw.DrawBox(box, { label: result.toString() })
+            drawBox.draw(canvas)
+            document.getElementById('name').innerHTML+=result.toString()+"<br>"
+        })
+        
+    }
+
+    function loadLabeledImages() {
+        const labels = ['Jisoo', 'Lisa', 'Rose', 'Jennie', 'Tung']
+        return Promise.all(
+            labels.map(async label => {
+                const descriptions = []
+                for (let i = 1; i <= 4; i++) {
+                    const img = await faceapi.fetchImage(`labeled_images/${label}/${i}.jpg`)
+                    const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor()
+                    descriptions.push(detections.descriptor)
+                }
+                
+                return new faceapi.LabeledFaceDescriptors(label, descriptions)
+            })
+        )
+    }
+
+    function dataURItoBlob(dataURI, dataTYPE) {
+        var binary = atob(dataURI.split(',')[1]), array = [];
+        for (var i = 0; i < binary.length; i++) array.push(binary.charCodeAt(i));
+        return new Blob([new Uint8Array(array)], { type: dataTYPE });
+    }
+</script>
+
+</html>
