@@ -22,6 +22,9 @@
             background-color: cyan;
             align-items: center;
         }
+        .display-none {
+            display: none;
+        }
         #webcam-container {
             display: block;
             margin: auto;
@@ -38,7 +41,7 @@
 </head>
 
 <body>
-
+    <div id="loading">loading...</div>
     <div id="webcam-container"></div>
     <input id="takeSnapshotButton" type="button" value="Take Snapshot">
     <div id="container">
@@ -64,6 +67,7 @@
         const takeSnapshotButton = document.getElementById('takeSnapshotButton')
         let image, canvas
 
+        document.getElementById('loading').setAttribute('class', 'display-none');
         Webcam.set({
             width: 500,
             height: 400,
