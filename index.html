@@ -118,7 +118,11 @@
                 for (let i = 1; i <= 4; i++) {
                     const img = await faceapi.fetchImage(`labeled_images/${label}/${i}.jpg`)
                     const detections = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor()
-                    descriptions.push(detections.descriptor)
+                    if (detections) {
+                        descriptions.push(detections.descriptor)
+                    } else {
+                        console.log(`labeled_images/${label}/${i}.jpg failure`)
+                    }
                 }
                 
                 return new faceapi.LabeledFaceDescriptors(label, descriptions)
